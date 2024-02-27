@@ -25,6 +25,7 @@ router.post("/register", async (req, res) => {
     const latitude = "not set"
     const status = "inactive"
     const restaurantName = "not set"
+    const phoneNumber = "not set"
     
     if (!name || !email || !role) {
       return res.status(422).json("Please fill all the required fields.");
@@ -69,7 +70,7 @@ router.post("/register", async (req, res) => {
           newUser = new deliveryPartner({ name, email });
           break;
         case 'restaurant':
-          newUser = new restaurant({ name, email,status,location,latitude,longitude,restaurantName });
+          newUser = new restaurant({ name, email,status,location,latitude,longitude,restaurantName,phoneNumber });
           break;
         default:
           return res.status(422).json("Invalid role.");
@@ -84,10 +85,11 @@ router.post("/register", async (req, res) => {
   });
   
   router.patch("/restaurantProfileEdit", async (req, res) => {
-    const { location, restaurantName, longitude, latitude, email } = req.body;
+    const { location, restaurantName, longitude, latitude, email,phoneNumber } = req.body;
+    console.log(email)
     
     // Check if any required field is missing in the request body
-    if (!location || !restaurantName || !longitude || !latitude || !email) {
+    if (!location || !restaurantName || !longitude || !latitude || !email || !phoneNumber) {
         return res.status(400).json("Please provide all required data");
     }
 
@@ -105,6 +107,7 @@ router.post("/register", async (req, res) => {
             existingRestaurant.restaurantName = restaurantName;
             existingRestaurant.longitude = longitude;
             existingRestaurant.latitude = latitude;
+            existingRestaurant.phoneNumber = phoneNumber;
 
             // Save the updated document
             await existingRestaurant.save();
