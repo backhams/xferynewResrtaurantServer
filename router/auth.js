@@ -19,7 +19,12 @@ const {
 // User  registration and validation register route
 router.post("/register", async (req, res) => {
     const { name, email, role } = req.body;
-    console.log("sdgdg",role)
+    console.log(email)
+    const location = "not added"
+    const longitude = "not set"
+    const latitude = "not set"
+    const status = "inactive"
+    const restaurantName = "not set"
     
     if (!name || !email || !role) {
       return res.status(422).json("Please fill all the required fields.");
@@ -64,7 +69,7 @@ router.post("/register", async (req, res) => {
           newUser = new deliveryPartner({ name, email });
           break;
         case 'restaurant':
-          newUser = new restaurant({ name, email });
+          newUser = new restaurant({ name, email,status,location,latitude,longitude,restaurantName });
           break;
         default:
           return res.status(422).json("Invalid role.");
@@ -78,5 +83,72 @@ router.post("/register", async (req, res) => {
     }
   });
   
+  router.patch("/restaurantProfileEdit", async (req, res) => {
+    const { location, restaurantName, longitude, latitude, email } = req.body;
+    
+    // Check if any required field is missing in the request body
+    if (!location || !restaurantName || !longitude || !latitude || !email) {
+        return res.status(400).json("Please provide all required data");
+    }
+
+    try {
+        // Search for a restaurant document with the provided email
+        const existingRestaurant = await restaurant.findOne({ email });
+
+        if (!existingRestaurant) {
+            console.log("Not found")
+            // If no document is found, return a 404 error
+            return res.status(404).json("User not found");
+        } else {
+            // If a document is found, update its fields with the provided data
+            existingRestaurant.location = location;
+            existingRestaurant.restaurantName = restaurantName;
+            existingRestaurant.longitude = longitude;
+            existingRestaurant.latitude = latitude;
+
+            // Save the updated document
+            await existingRestaurant.save();
+
+            // Respond with a success message
+            res.status(200).json("Restaurant updated successfully");
+        }
+    } catch (error) {
+        // Handle any errors
+        console.error("Error updating profile:");
+        res.status(500).json("Internal server error");
+    }
+});
+
+router.get("/restaurantProfileData", async (req, res) => {
+  const { email } = req.query;
+  
+  // Check if any required field is missing in the request body
+  if (!email) {
+      return res.status(400).json("Please provide email");
+  }
+
+  try {
+      // Search for a restaurant document with the provided email
+      const existingRestaurant = await restaurant.findOne({ email });
+
+      if (!existingRestaurant) {
+          console.log("Not found")
+          // If no document is found, return a 404 error
+          return res.status(404).json("User not found");
+      } else {
+          // Send the restaurant document as the response
+          res.status(200).json(existingRestaurant);
+      }
+  } catch (error) {
+      // Handle any errors
+      console.error("Error updating profile:", error);
+      res.status(500).json("Internal server error");
+  }
+});
+
+
+
+
+
 
 module.exports = router;

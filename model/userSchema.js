@@ -33,9 +33,24 @@ const restaurantSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  restaurantName: {
+    type: String
+  },
   email: {
     type: String,
     required: true,
+  },
+  location: {
+    type: String
+  },
+  latitude: {
+    type: String
+  },
+  longitude: {
+    type: String
+  },
+  status: {
+    type: String
   },
   createdAt: {
     type: Date,
