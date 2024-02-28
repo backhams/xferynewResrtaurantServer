@@ -62,7 +62,48 @@ const restaurantSchema = new mongoose.Schema({
 });
 
 
+const menuSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+  },
+  restaurantName: {
+    type: String,
+    required: true,
+  },
+  email: {
+    type: String,
+    required: true,
+  },
+  phoneNumber: {
+    type: String,
+    required: true,
+  },
+  latitude: {
+    type: String,
+    required: true,
+  },
+  longitude: {
+    type: String,
+    required: true,
+  },
+  url:{
+    type: String,
+    required: true,
+  },
+  status: {
+    type: String,
+    required: true,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+
 const customer = mongoose.model("Customer", customerSchema);
 const deliveryPartner = mongoose.model("DeliveryPartner", deliverySchema);
 const restaurant = mongoose.model("Restaurant", restaurantSchema);
-module.exports = { customer,deliveryPartner,restaurant };
+const menu = mongoose.model("Menu", menuSchema);
+module.exports = { customer,deliveryPartner,restaurant,menu };

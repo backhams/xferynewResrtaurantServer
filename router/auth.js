@@ -13,7 +13,8 @@ require("../db/conn");
 const {
   customer,
   deliveryPartner,
-  restaurant
+  restaurant,
+  menu,
 } = require("../model/userSchema");
 
 // User  registration and validation register route
@@ -150,7 +151,70 @@ router.get("/restaurantProfileData", async (req, res) => {
 });
 
 
+router.get("/getAccount", async (req, res) => {
+  const { email } = req.query;
+  console.log(email)
 
+  try {
+    // Check if the userEmail parameter is provided
+    if (!email) {
+      return res.status(400).json("Please provide the userEmail parameter.");
+    }
+
+    // Query the collection to find the document with the provided email
+    const document = await restaurant.findOne({ email });
+
+    if (!document) {
+      return res.status(404).json("Document not found for the provided email.");
+    }
+
+    // If document is found, send it as a response
+    res.status(200).json(document);
+  } catch (error) {
+    // Handle any errors
+    console.error("Error fetching document:", error);
+    res.status(500).json("Internal server error");
+  }
+});
+
+
+
+router.post("/menuUpload", async (req, res) => {
+  const { title,price,comparePrice,email, phoneNumber, restaurantName, latitude, longitude, url } = req.body;
+  const status = "disable";
+  
+  // Check if any required field is missing in the request body
+  if (!title || !price || !comparePrice || !email || !phoneNumber || !restaurantName || !latitude || !longitude || !url) {
+      return res.status(400).json("Please provide all required data.");
+  }
+
+  try {
+    // Create a new menu document
+    const newMenu = new menu({
+      title,
+      price,
+      comparePrice,
+      email,
+      phoneNumber,
+      restaurantName,
+      status,
+      latitude,
+      longitude,
+      url
+    });
+
+    // Save the menu document to the database
+    await newMenu.save();
+
+    // Send a success response
+    res.status(200).json({ message: 'Menu uploaded successfully' });
+    console.log("done")
+  } catch (error) {
+      // Handle any errors
+      console.error("Error uploading menu:", error);
+      res.status(500).json("Internal server error");
+  }
+});
 
 
 
