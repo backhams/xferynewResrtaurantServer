@@ -149,7 +149,32 @@ router.get("/restaurantProfileData", async (req, res) => {
   }
 });
 
+router.post("/menuUpload", async (req, res) => {
+  const { email } = req.query;
+  
+  // Check if any required field is missing in the request body
+  if (!email) {
+      return res.status(400).json("Please provide email");
+  }
 
+  try {
+      // Search for a restaurant document with the provided email
+      const existingRestaurant = await restaurant.findOne({ email });
+
+      if (!existingRestaurant) {
+          console.log("Not found")
+          // If no document is found, return a 404 error
+          return res.status(404).json("User not found");
+      } else {
+          // Send the restaurant document as the response
+          res.status(200).json(existingRestaurant);
+      }
+  } catch (error) {
+      // Handle any errors
+      console.error("Error updating profile:", error);
+      res.status(500).json("Internal server error");
+  }
+});
 
 
 
