@@ -13,7 +13,8 @@ require("../db/conn");
 const {
   customer,
   deliveryPartner,
-  restaurant
+  restaurant,
+  menu,
 } = require("../model/userSchema");
 
 // User  registration and validation register route
@@ -149,30 +150,115 @@ router.get("/restaurantProfileData", async (req, res) => {
   }
 });
 
+
+router.get("/getAccount", async (req, res) => {
+  const { email } = req.query;
+  console.log(email)
+
+  try {
+    // Check if the userEmail parameter is provided
+    if (!email) {
+      return res.status(400).json("Please provide the userEmail parameter.");
+    }
+
+    // Query the collection to find the document with the provided email
+    const document = await restaurant.findOne({ email });
+
+    if (!document) {
+      return res.status(404).json("Document not found for the provided email.");
+    }
+
+    // If document is found, send it as a response
+    res.status(200).json(document);
+  } catch (error) {
+    // Handle any errors
+    console.error("Error fetching document:", error);
+    res.status(500).json("Internal server error");
+  }
+});
+
+
+
 router.post("/menuUpload", async (req, res) => {
+  const { title,price,comparePrice,email, phoneNumber, restaurantName, latitude, longitude, url } = req.body;
+  const status = "In review";
+  
+  // Check if any required field is missing in the request body
+  if (!title || !price || !comparePrice || !email || !phoneNumber || !restaurantName || !latitude || !longitude || !url) {
+      return res.status(400).json("Please provide all required data.");
+  }
+
+  try {
+    // Create a new menu document
+    const newMenu = new menu({
+      title,
+      price,
+      comparePrice,
+      email,
+      phoneNumber,
+      restaurantName,
+      status,
+      latitude,
+      longitude,
+      url
+    });
+
+    // Save the menu document to the database
+    await newMenu.save();
+
+    // Send a success response
+    res.status(200).json({ message: 'Menu uploaded successfully' });
+    console.log("done")
+  } catch (error) {
+      // Handle any errors
+      console.error("Error uploading menu:", error);
+      res.status(500).json("Internal server error");
+  }
+});
+
+
+router.get("/fetchMenu", async (req, res) => {
   const { email } = req.query;
   
   // Check if any required field is missing in the request body
   if (!email) {
-      return res.status(400).json("Please provide email");
+    return res.status(400).json("Please provide all required data.");
   }
 
   try {
-      // Search for a restaurant document with the provided email
-      const existingRestaurant = await restaurant.findOne({ email });
+    // Query MongoDB to find all documents where email matches
+    const menus = await menu.find({ email });
 
-      if (!existingRestaurant) {
-          console.log("Not found")
-          // If no document is found, return a 404 error
-          return res.status(404).json("User not found");
-      } else {
-          // Send the restaurant document as the response
-          res.status(200).json(existingRestaurant);
-      }
+    // Send the found menus as response
+    res.status(200).json(menus);
+    console.log(menus)
   } catch (error) {
-      // Handle any errors
-      console.error("Error updating profile:", error);
-      res.status(500).json("Internal server error");
+    // Handle any errors
+    console.error("Error fetching menu:", error);
+    res.status(500).json("Internal server error");
+  }
+});
+
+
+router.delete("/deleteMenu", async (req, res) => {
+  const { id } = req.query; // Access id from URL params
+  console.log(id)
+  // Check if any required field is missing in the request params
+  if (!id) {
+    return res.status(400).json({ error: "Id not found." });
+  }
+
+  try {
+    // Delete the menu by its id
+    await menu.deleteOne({ _id: id });
+
+    // Send a success response
+    res.status(200).json({ message: "Menu deleted successfully" });
+    console.log("deleted")
+  } catch (error) {
+    // Handle any errors
+    console.error("Error deleting menu:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
