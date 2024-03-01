@@ -217,6 +217,41 @@ router.post("/menuUpload", async (req, res) => {
 });
 
 
+router.patch("/updateMenu", async (req, res) => {
+  const { title, price, comparePrice, id } = req.body;
+
+  // Check if any required field is missing in the request body
+  if (!title || !price || !comparePrice || !id) {
+    return res.status(400).json("Please provide all required data.");
+  }
+
+  try {
+    // Find the menu document by its ID
+    const existingMenu = await menu.findById(id);
+
+    // Check if the menu exists
+    if (!existingMenu) {
+      return res.status(404).json("Menu not found");
+    }
+
+    // Update the fields
+    existingMenu.title = title;
+    existingMenu.price = price;
+    existingMenu.comparePrice = comparePrice;
+
+    // Save the updated menu document
+    await existingMenu.save();
+
+    // Send a success response
+    res.status(200).json({ message: 'Menu updated successfully' });
+  } catch (error) {
+    // Handle any errors
+    console.error("Error updating menu:", error);
+    res.status(500).json("Internal server error");
+  }
+});
+
+
 router.get("/fetchMenu", async (req, res) => {
   const { email } = req.query;
   
@@ -262,6 +297,30 @@ router.delete("/deleteMenu", async (req, res) => {
   }
 });
 
+router.get("/nearbySearch", async (req, res) => {
+  const { page } = req.query;
+  const itemsPerPage = 5; // Set the number of items per page
+
+  try {
+    // Ensure that page is provided and is a valid number
+    if (!page || isNaN(parseInt(page))) {
+      return res.status(400).json({ error: "Invalid page number" });
+    }
+
+    // Calculate the skip value based on the page number
+    const skip = (parseInt(page) - 1) * itemsPerPage;
+
+    // Fetch documents from the menu collection based on pagination
+    const menuItems = await menu.find().skip(skip).limit(itemsPerPage).exec();
+
+    // Send the menu items as a response
+    res.json(menuItems);
+  } catch (error) {
+    // Handle any errors
+    console.error("Something wrong!", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 
 
