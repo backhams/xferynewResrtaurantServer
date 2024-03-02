@@ -299,7 +299,8 @@ router.delete("/deleteMenu", async (req, res) => {
 
 router.get("/nearbySearch", async (req, res) => {
   const { page } = req.query;
-  const itemsPerPage = 10; // Set the number of items per page
+  console.log(page)
+  const itemsPerPage = 3; // Set the number of items per page
 
   try {
     // Ensure that page is provided and is a valid number
