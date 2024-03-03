@@ -297,6 +297,36 @@ router.delete("/deleteMenu", async (req, res) => {
   }
 });
 
+router.post("/cache-restaurant-status", async (req, res) => {
+  const { latitude,longitude,email } = req.body;
+  console.log("cache-restaurant-status")
+  console.log("email",email)
+  console.log("longitude",longitude)
+  console.log("latitude",latitude)
+  res.status(200).json("done")
+
+  // try {
+  //   // Ensure that page is provided and is a valid number
+  //   if (!page || isNaN(parseInt(page))) {
+  //     return res.status(400).json({ error: "Invalid page number" });
+  //   }
+
+  //   // Calculate the skip value based on the page number
+  //   const skip = (parseInt(page) - 1) * itemsPerPage;
+
+  //   // Fetch documents from the menu collection based on pagination
+  //   const menuItems = await menu.find().skip(skip).limit(itemsPerPage).exec();
+
+  //   // Send the menu items as a response
+  //   res.json(menuItems);
+  // } catch (error) {
+  //   // Handle any errors
+  //   console.error("Something wrong!", error);
+  //   res.status(500).json({ error: "Internal server error" });
+  // }
+});
+
+
 router.get("/nearbySearch", async (req, res) => {
   const { page } = req.query;
   console.log(page)
