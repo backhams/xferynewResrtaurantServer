@@ -3,6 +3,9 @@ const router = express.Router();
 // const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
 const { v4: uuidv4 } = require("uuid");
+const NodeCache = require('node-cache');
+// Create a new instance of NodeCache
+const cache = new NodeCache();
 
 dotenv.config({ path: "./config.env" });
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -298,60 +301,134 @@ router.delete("/deleteMenu", async (req, res) => {
 });
 
 router.post("/cache-restaurant-status", async (req, res) => {
-  const { latitude,longitude,email } = req.body;
-  console.log("cache-restaurant-status")
-  console.log("email",email)
-  console.log("longitude",longitude)
-  console.log("latitude",latitude)
-  res.status(200).json("done")
+  const { latitude, longitude, email } = req.body;
 
-  // try {
-  //   // Ensure that page is provided and is a valid number
-  //   if (!page || isNaN(parseInt(page))) {
-  //     return res.status(400).json({ error: "Invalid page number" });
-  //   }
+  // Check if the email already exists in the cache
+  if (cache.has(email)) {
+    return res.status(200).json({ message: 'Email already exists in cache' });
+  }
 
-  //   // Calculate the skip value based on the page number
-  //   const skip = (parseInt(page) - 1) * itemsPerPage;
+  // If the email does not exist, save it to the cache under the "restaurant" collection
+  cache.set(`restaurant:${email}`, { latitude, longitude });
 
-  //   // Fetch documents from the menu collection based on pagination
-  //   const menuItems = await menu.find().skip(skip).limit(itemsPerPage).exec();
-
-  //   // Send the menu items as a response
-  //   res.json(menuItems);
-  // } catch (error) {
-  //   // Handle any errors
-  //   console.error("Something wrong!", error);
-  //   res.status(500).json({ error: "Internal server error" });
-  // }
+  res.status(200).json({ message: 'Email saved in cache' });
 });
 
+// Route to get all documents in the "restaurant" collection
+router.get("/get-all-restaurants", async (req, res) => {
+  // Retrieve all keys from the cache
+  const keys = cache.keys();
+
+  // Initialize an empty array to store restaurant documents
+  const restaurants = [];
+
+  // Iterate over each key to fetch the corresponding value
+  keys.forEach(key => {
+    // Check if the key belongs to the "restaurant" collection
+    if (key.startsWith("restaurant:")) {
+      // Retrieve the value corresponding to the key
+      const value = cache.get(key);
+
+      // Create an object representing the restaurant document
+      const restaurant = {
+        email: key.substring("restaurant:".length), // Remove the collection prefix
+        latitude: value.latitude,
+        longitude: value.longitude
+      };
+
+      // Push the restaurant document to the 'restaurants' array
+      restaurants.push(restaurant);
+    }
+  });
+
+  // Send the array of restaurant documents in the response
+  res.status(200).json(restaurants);
+});
+
+// Route to remove a cached document based on email
+router.delete("/remove-restaurant/:email", async (req, res) => {
+  const { email } = req.params;
+
+  // Check if the email exists in the cache
+  if (cache.has(`restaurant:${email}`)) {
+    // If the email exists, remove it from the cache
+    cache.del(`restaurant:${email}`);
+    return res.status(200).json({ message: 'Email removed from cache' });
+  }
+
+  // If the email does not exist in the cache
+  return res.status(404).json({ message: 'Email not found in cache' });
+});
 
 router.get("/nearbySearch", async (req, res) => {
-  const { page } = req.query;
-  console.log(page)
-  const itemsPerPage = 3; // Set the number of items per page
+  const { page, latitude, longitude } = req.query;
 
   try {
-    // Ensure that page is provided and is a valid number
-    if (!page || isNaN(parseInt(page))) {
-      return res.status(400).json({ error: "Invalid page number" });
+    // Ensure that page, latitude, and longitude are provided
+    if (!page || isNaN(parseInt(page)) || !latitude || !longitude) {
+      return res.status(400).json({ error: "Invalid page number or missing latitude/longitude" });
     }
+
+    const itemsPerPage = 3; // Set the number of items per page
 
     // Calculate the skip value based on the page number
     const skip = (parseInt(page) - 1) * itemsPerPage;
 
-    // Fetch documents from the menu collection based on pagination
-    const menuItems = await menu.find().skip(skip).limit(itemsPerPage).exec();
+    // Calculate the distance threshold (3 kilometers) in radians
+    const distanceThreshold = 3 / 6371; // Earth's radius in kilometers
 
-    // Send the menu items as a response
+    // Convert latitude and longitude to radians
+    const userLatitude = parseFloat(latitude) * (Math.PI / 180);
+    const userLongitude = parseFloat(longitude) * (Math.PI / 180);
+
+    // Retrieve all keys from the cache
+    const keys = cache.keys();
+
+    // Initialize an empty array to store nearby restaurant emails
+    const nearbyRestaurantEmails = [];
+
+    // Iterate over each key to fetch the corresponding value
+    keys.forEach(key => {
+      // Check if the key belongs to the "restaurant" collection
+      if (key.startsWith("restaurant:")) {
+        // Retrieve the value corresponding to the key from the cache
+        const value = cache.get(key);
+
+        // Calculate the distance between user's location and restaurant's location using Haversine formula
+        const restaurantLatitude = value.latitude * (Math.PI / 180);
+        const restaurantLongitude = value.longitude * (Math.PI / 180);
+
+        const dLat = restaurantLatitude - userLatitude;
+        const dLon = restaurantLongitude - userLongitude;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(userLatitude) * Math.cos(restaurantLatitude) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = 6371 * c; // Earth's radius in kilometers
+
+        // Check if the restaurant is within the distance threshold
+        if (distance <= distanceThreshold) {
+          nearbyRestaurantEmails.push(key.substring("restaurant:".length)); // Remove the collection prefix
+        }
+      }
+    });
+
+    // Fetch documents from the database based on nearby restaurant emails
+    const menuItems = await menu.find({ email: { $in: nearbyRestaurantEmails } })
+                                .skip(skip)
+                                .limit(itemsPerPage)
+                                .exec();
+
+    // Return the menu items in the response
     res.json(menuItems);
   } catch (error) {
     // Handle any errors
-    console.error("Something wrong!", error);
+    console.error("Something went wrong!", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+
 
 
 
