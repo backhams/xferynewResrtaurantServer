@@ -183,11 +183,11 @@ router.get("/getAccount", async (req, res) => {
 
 
 router.post("/menuUpload", async (req, res) => {
-  const { title,price,comparePrice,email, phoneNumber, restaurantName, latitude, longitude, url } = req.body;
+  const { title,description,price,comparePrice,email, phoneNumber, restaurantName, latitude, longitude, url } = req.body;
   const status = "In review";
   
   // Check if any required field is missing in the request body
-  if (!title || !price || !comparePrice || !email || !phoneNumber || !restaurantName || !latitude || !longitude || !url) {
+  if (!title || !description || !price || !comparePrice || !email || !phoneNumber || !restaurantName || !latitude || !longitude || !url) {
       return res.status(400).json("Please provide all required data.");
   }
 
@@ -195,6 +195,7 @@ router.post("/menuUpload", async (req, res) => {
     // Create a new menu document
     const newMenu = new menu({
       title,
+      description,
       price,
       comparePrice,
       email,
@@ -225,10 +226,10 @@ router.post("/menuUpload", async (req, res) => {
 
 
 router.patch("/updateMenu", async (req, res) => {
-  const { title, price, comparePrice, id } = req.body;
+  const { title,description, price, comparePrice, id } = req.body;
 
   // Check if any required field is missing in the request body
-  if (!title || !price || !comparePrice || !id) {
+  if (!title || !description || !price || !comparePrice || !id) {
     return res.status(400).json("Please provide all required data.");
   }
 
@@ -243,6 +244,7 @@ router.patch("/updateMenu", async (req, res) => {
 
     // Update the fields
     existingMenu.title = title;
+    existingMenu.description = description;
     existingMenu.price = price;
     existingMenu.comparePrice = comparePrice;
 

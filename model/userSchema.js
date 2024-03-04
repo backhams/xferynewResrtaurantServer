@@ -67,6 +67,10 @@ const menuSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  description: {
+    type: String,
+    required: true,
+  },
   restaurantName: {
     type: String,
     required: true,
