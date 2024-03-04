@@ -103,12 +103,18 @@ const menuSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  location: {
+    type: { type: String, default: "Point" }, // Corrected structure
+    coordinates: { type: [Number], default: [0, 0] } // Corrected structure
+  },
   createdAt: {
     type: Date,
     default: Date.now,
   },
 });
 
+// Define the 2dsphere geospatial index on the location.coordinates field
+menuSchema.index({ 'location.coordinates': '2dsphere' });
 
 const customer = mongoose.model("Customer", customerSchema);
 const deliveryPartner = mongoose.model("DeliveryPartner", deliverySchema);

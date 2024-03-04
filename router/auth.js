@@ -156,7 +156,7 @@ router.get("/restaurantProfileData", async (req, res) => {
 
 router.get("/getAccount", async (req, res) => {
   const { email } = req.query;
-  console.log(email)
+  // console.log(email)
 
   try {
     // Check if the userEmail parameter is provided
@@ -203,7 +203,11 @@ router.post("/menuUpload", async (req, res) => {
       status,
       latitude,
       longitude,
-      url
+      url,
+      location: {
+        type: 'Point',
+        coordinates: [parseFloat(longitude), parseFloat(latitude)]
+      }
     });
 
     // Save the menu document to the database
@@ -257,6 +261,7 @@ router.patch("/updateMenu", async (req, res) => {
 
 router.get("/fetchMenu", async (req, res) => {
   const { email } = req.query;
+  console.log(email)
   
   // Check if any required field is missing in the request body
   if (!email) {
@@ -301,7 +306,8 @@ router.delete("/deleteMenu", async (req, res) => {
 });
 
 router.post("/cache-restaurant-status", async (req, res) => {
-  const { latitude, longitude, email } = req.body;
+  const { email } = req.body; // Assuming email is sent as JSON data
+  console.log("cache",email)
 
   // Check if the email already exists in the cache
   if (cache.has(email)) {
@@ -309,10 +315,13 @@ router.post("/cache-restaurant-status", async (req, res) => {
   }
 
   // If the email does not exist, save it to the cache under the "restaurant" collection
-  cache.set(`restaurant:${email}`, { latitude, longitude });
+  cache.set(`restaurant:${email}`, true); // Assuming you want to store true as the value
 
   res.status(200).json({ message: 'Email saved in cache' });
 });
+
+
+
 
 // Route to get all documents in the "restaurant" collection
 router.get("/get-all-restaurants", async (req, res) => {
@@ -332,8 +341,6 @@ router.get("/get-all-restaurants", async (req, res) => {
       // Create an object representing the restaurant document
       const restaurant = {
         email: key.substring("restaurant:".length), // Remove the collection prefix
-        latitude: value.latitude,
-        longitude: value.longitude
       };
 
       // Push the restaurant document to the 'restaurants' array
@@ -364,69 +371,44 @@ router.get("/nearbySearch", async (req, res) => {
   const { page, latitude, longitude } = req.query;
 
   try {
-    // Ensure that page, latitude, and longitude are provided
     if (!page || isNaN(parseInt(page)) || !latitude || !longitude) {
       return res.status(400).json({ error: "Invalid page number or missing latitude/longitude" });
     }
 
-    const itemsPerPage = 3; // Set the number of items per page
-
-    // Calculate the skip value based on the page number
+    const itemsPerPage = 3;
     const skip = (parseInt(page) - 1) * itemsPerPage;
 
-    // Calculate the distance threshold (3 kilometers) in radians
-    const distanceThreshold = 3 / 6371; // Earth's radius in kilometers
+    // Convert latitude and longitude to float
+    const userLatitude = parseFloat(latitude);
+    const userLongitude = parseFloat(longitude);
 
-    // Convert latitude and longitude to radians
-    const userLatitude = parseFloat(latitude) * (Math.PI / 180);
-    const userLongitude = parseFloat(longitude) * (Math.PI / 180);
-
-    // Retrieve all keys from the cache
-    const keys = cache.keys();
-
-    // Initialize an empty array to store nearby restaurant emails
-    const nearbyRestaurantEmails = [];
-
-    // Iterate over each key to fetch the corresponding value
-    keys.forEach(key => {
-      // Check if the key belongs to the "restaurant" collection
-      if (key.startsWith("restaurant:")) {
-        // Retrieve the value corresponding to the key from the cache
-        const value = cache.get(key);
-
-        // Calculate the distance between user's location and restaurant's location using Haversine formula
-        const restaurantLatitude = value.latitude * (Math.PI / 180);
-        const restaurantLongitude = value.longitude * (Math.PI / 180);
-
-        const dLat = restaurantLatitude - userLatitude;
-        const dLon = restaurantLongitude - userLongitude;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                  Math.cos(userLatitude) * Math.cos(restaurantLatitude) *
-                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        const distance = 6371 * c; // Earth's radius in kilometers
-
-        // Check if the restaurant is within the distance threshold
-        if (distance <= distanceThreshold) {
-          nearbyRestaurantEmails.push(key.substring("restaurant:".length)); // Remove the collection prefix
+    // Fetch documents from the database based on geospatial query
+    const menuItems = await menu.find({
+      'location.coordinates': {
+        $near: {
+          $geometry: {
+            type: "Point",
+            coordinates: [userLongitude, userLatitude]
+          },
+          $maxDistance: 3000 // Maximum distance in meters (3 kilometers)
         }
-      }
-    });
+      },
+      status: "Active" // Add condition to check for "Active" status
+    })
+    .skip(skip)
+    .limit(itemsPerPage)
+    .exec();
 
-    // Fetch documents from the database based on nearby restaurant emails
-    const menuItems = await menu.find({ email: { $in: nearbyRestaurantEmails } })
-                                .skip(skip)
-                                .limit(itemsPerPage)
-                                .exec();
-
-    // Return the menu items in the response
     res.json(menuItems);
   } catch (error) {
-    // Handle any errors
     console.error("Something went wrong!", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+
+
+
 
 
 
