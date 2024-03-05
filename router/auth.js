@@ -307,20 +307,7 @@ router.delete("/deleteMenu", async (req, res) => {
   }
 });
 
-router.post("/cache-restaurant-status", async (req, res) => {
-  const { email } = req.body; // Assuming email is sent as JSON data
-  console.log("cache",email)
 
-  // Check if the email already exists in the cache
-  if (cache.has(email)) {
-    return res.status(200).json({ message: 'Email already exists in cache' });
-  }
-
-  // If the email does not exist, save it to the cache under the "restaurant" collection
-  cache.set(`restaurant:${email}`, true); // Assuming you want to store true as the value
-
-  res.status(200).json({ message: 'Email saved in cache' });
-});
 
 
 
@@ -354,79 +341,7 @@ router.get("/get-all-restaurants", async (req, res) => {
   res.status(200).json(restaurants);
 });
 
-// Route to remove a cached document based on email
-router.delete("/remove-restaurant/:email", async (req, res) => {
-  const { email } = req.params;
 
-  // Check if the email exists in the cache
-  if (cache.has(`restaurant:${email}`)) {
-    // If the email exists, remove it from the cache
-    cache.del(`restaurant:${email}`);
-    return res.status(200).json({ message: 'Email removed from cache' });
-  }
-
-  // If the email does not exist in the cache
-  return res.status(404).json({ message: 'Email not found in cache' });
-});
-
-router.get("/nearbySearch", async (req, res) => {
-  const { page, latitude, longitude } = req.query;
-
-  try {
-    if (!page || isNaN(parseInt(page)) || !latitude || !longitude) {
-      return res.status(400).json({ error: "Invalid page number or missing latitude/longitude" });
-    }
-
-    const itemsPerPage = 5;
-    const skip = (parseInt(page) - 1) * itemsPerPage;
-
-    // Convert latitude and longitude to float
-    const userLatitude = parseFloat(latitude);
-    const userLongitude = parseFloat(longitude);
-
-    // Fetch documents from the database based on geospatial query
-    const menuItems = await menu.find({
-      'location.coordinates': {
-        $near: {
-          $geometry: {
-            type: "Point",
-            coordinates: [userLongitude, userLatitude]
-          },
-          $maxDistance: 3000 // Maximum distance in meters (3 kilometers)
-        }
-      },
-      status: "Active" // Add condition to check for "Active" status
-    })
-    .skip(skip)
-    .limit(itemsPerPage)
-    .exec();
-
-    // Check server cache memory for restaurant emails
-    const cachedEmails = cache.keys().filter(key => key.startsWith('restaurant:')).map(key => key.substring(11));
-
-    console.log("Emails found in cache:", cachedEmails);
-
-    menuItems.forEach(item => {
-      item.activeStatus = cachedEmails.includes(item.email) ? "online" : "offline";
-      if (cachedEmails.includes(item.email)) {
-        console.log(`Email ${item.email} found in cache and matched with menu item.`);
-      }
-    });
-
-    // Create a new array to hold the modified menu items with activeStatus included
-    const modifiedMenuItems = menuItems.map(item => {
-      return {
-        ...item.toObject(),
-        activeStatus: item.activeStatus
-      };
-    });
-
-    res.json(modifiedMenuItems);
-  } catch (error) {
-    console.error("Something went wrong!", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
 
 
 
