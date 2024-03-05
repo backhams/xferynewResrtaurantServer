@@ -377,7 +377,7 @@ router.get("/nearbySearch", async (req, res) => {
       return res.status(400).json({ error: "Invalid page number or missing latitude/longitude" });
     }
 
-    const itemsPerPage = 3;
+    const itemsPerPage = 5;
     const skip = (parseInt(page) - 1) * itemsPerPage;
 
     // Convert latitude and longitude to float
@@ -401,12 +401,33 @@ router.get("/nearbySearch", async (req, res) => {
     .limit(itemsPerPage)
     .exec();
 
-    res.json(menuItems);
+    // Check server cache memory for restaurant emails
+    const cachedEmails = cache.keys().filter(key => key.startsWith('restaurant:')).map(key => key.substring(11));
+
+    console.log("Emails found in cache:", cachedEmails);
+
+    menuItems.forEach(item => {
+      item.activeStatus = cachedEmails.includes(item.email) ? "online" : "offline";
+      if (cachedEmails.includes(item.email)) {
+        console.log(`Email ${item.email} found in cache and matched with menu item.`);
+      }
+    });
+
+    // Create a new array to hold the modified menu items with activeStatus included
+    const modifiedMenuItems = menuItems.map(item => {
+      return {
+        ...item.toObject(),
+        activeStatus: item.activeStatus
+      };
+    });
+
+    res.json(modifiedMenuItems);
   } catch (error) {
     console.error("Something went wrong!", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 
 
 
