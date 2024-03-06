@@ -12,6 +12,7 @@ const {
   restaurant,
   menu,
 } = require("./model/userSchema");
+const { json } = require("express/lib/response");
 
 
 // Create Express app
@@ -34,6 +35,7 @@ const server = http.createServer(app);
 const io = socketIo(server);
 // Map to store connected users and their sockets
 const connectedUsers = new Map();
+let activeRestaurantResponse;
 
 // Define a connection event handler
 io.on("connection", (socket) => {
@@ -43,7 +45,8 @@ io.on("connection", (socket) => {
   console.log("Connected Users:", Array.from(connectedUsers.keys()));
 
   // Handle 'message' event
-  socket.on("message", (data) => {
+  socket.on("restaurantStatusResponse", (data) => {
+    activeRestaurantResponse = data;
     console.log("Received message:", data);
     // Broadcast the message to all connected clients
     io.emit("message", data);
@@ -76,32 +79,22 @@ app.get("/checkRestaurantActiveStatus", async (req, res) => {
   // Check if the email exists in the cache
   if (cache.has(`restaurant:${email}`)) {
     // Emit a socket event with the email
-    io.emit("restaurantStatus", { email });
-    console.log("Emitting restaurantStatus");
+    io.emit("restaurantStatus", email);
 
-    // Set up a timer to wait for a response (adjust the timeout as needed)
-    const timeout = 5000; // 5 seconds timeout
-    let responseReceived = false;
-
-    // Set up a timeout to handle cases where no response is received
-    const timer = setTimeout(() => {
-      if (!responseReceived) {
-        console.log("No response received within the timeout");
-        return res.status(500).json({ message: 'No response received within the timeout' });
+    // Wait for 5 seconds
+    setTimeout(() => {
+      // Check if data is received in the global variable
+      if (activeRestaurantResponse) {
+        // If data is found, send a response indicating that the email is found
+        return res.status(200).json('Email found');
+      } else {
+        // If no data is found, send a response indicating that the email is not found
+        return res.status(404).json('Email not found');
       }
-    }, timeout);
-
-    // Listen for the response from clients
-    io.on("restaurantStatusResponse", (response) => {
-      console.log("Received restaurantStatusResponse:", response);
-      // Handle the response from the client here
-      responseReceived = true;
-      clearTimeout(timer); // Clear the timeout
-      return res.status(200).json({ message: 'Response received successfully' });
-    });
+    }, 3000); // 5000 milliseconds = 5 seconds
   } else {
     // If the email is not found in the cache, send a response indicating that the email is not found
-    return res.status(404).json({ message: 'Email not found in cache' });
+    return res.status(404).json('Email not found in cache');
   }
 });
 
