@@ -14,6 +14,7 @@ const {
   restaurant,
   menu,
 } = require("./model/userSchema");
+const { Console } = require("console");
 
 // Create Express app
 const app = express();
@@ -146,6 +147,32 @@ app.get("/nearbySearch", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+
+app.get("/checkRestaurantActiveStatus", async (req, res) => {
+  const { email } = req.query;
+console.log(email)
+  try {
+   // Check if the email exists in the connectedData object
+   const emailExists = Object.values(connectedData).some(
+    (storedEmail) => storedEmail === email
+  );
+      
+      console.log(emailExists)
+    if (emailExists) {
+      // If the email exists, send a 200 response
+      return res.status(200).json({ message: 'Email exists in connectedData' });
+    } else {
+      console.log("not found")
+      // If the email does not exist, send a 404 response
+      return res.status(404).json({ message: 'Email does not exist in connectedData' });
+    }
+  } catch (error) {
+    console.error("Error checking email:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 
 // Route to remove a cached document based on email
 app.delete("/remove-restaurant/:email", async (req, res) => {
