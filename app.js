@@ -3,6 +3,8 @@ const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
 const NodeCache = require('node-cache');
+const { v4: uuidv4 } = require('uuid');
+
 // Create a new instance of NodeCache
 const cache = new NodeCache();
 
@@ -12,8 +14,6 @@ const {
   restaurant,
   menu,
 } = require("./model/userSchema");
-const { json } = require("express/lib/response");
-
 
 // Create Express app
 const app = express();
@@ -33,34 +33,48 @@ const server = http.createServer(app);
 
 // Initialize Socket.IO
 const io = socketIo(server);
-// Map to store connected users and their sockets
-const connectedUsers = new Map();
-let activeRestaurantResponse;
 
 // Define a connection event handler
 io.on("connection", (socket) => {
   console.log("A client connected.");
-  
-  // Log the list of connected users
-  console.log("Connected Users:", Array.from(connectedUsers.keys()));
-
-  // Handle 'message' event
-  socket.on("restaurantStatusResponse", (data) => {
-    activeRestaurantResponse = data;
-    console.log("Received message:", data);
-    // Broadcast the message to all connected clients
-    io.emit("message", data);
-  });
 
   // Handle disconnection
   socket.on("disconnect", () => {
     console.log("A client disconnected.");
+    // Remove the data associated with the disconnected socket from connectedData
+    delete connectedData[socket.id];
+  });
+
+  // Handle data sent during connection
+  socket.on("connectData", (data) => {
+    console.log("Data sent during connection:", data);
+    
+    // Check if the email already exists in connectedData
+    const existingSocketId = Object.keys(connectedData).find(
+      (socketId) => connectedData[socketId].email === data.email
+    );
+
+    if (existingSocketId) {
+      console.log(`Replacing existing connection for email: ${data.email}`);
+      // Remove existing connection
+      delete connectedData[existingSocketId];
+    }
+
+    // Store the data in the connectedData object
+    connectedData[socket.id] = data;
   });
 });
 
+
+// Object to store data sent during connection
+let connectedData = {};
+
+app.get("/getsocket",async (req,res)=>{
+  res.status(200).json(connectedData)
+})
 app.post("/cache-restaurant-status", async (req, res) => {
   const { email } = req.body; // Assuming email is sent as JSON data
-  console.log("cache",email)
+  console.log(connectedData)
 
   // Check if the email already exists in the cache
   if (cache.has(email)) {
@@ -71,31 +85,6 @@ app.post("/cache-restaurant-status", async (req, res) => {
   cache.set(`restaurant:${email}`, true); // Assuming you want to store true as the value
 
   res.status(200).json({ message: 'Email saved in cache' });
-});
-// Route to check if the restaurant status is active
-app.get("/checkRestaurantActiveStatus", async (req, res) => {
-  const { email } = req.query;
-
-  // Check if the email exists in the cache
-  if (cache.has(`restaurant:${email}`)) {
-    // Emit a socket event with the email
-    io.emit("restaurantStatus", email);
-
-    // Wait for 5 seconds
-    setTimeout(() => {
-      // Check if data is received in the global variable
-      if (activeRestaurantResponse) {
-        // If data is found, send a response indicating that the email is found
-        return res.status(200).json('Email found');
-      } else {
-        // If no data is found, send a response indicating that the email is not found
-        return res.status(404).json('Email not found');
-      }
-    }, 3000); // 5000 milliseconds = 5 seconds
-  } else {
-    // If the email is not found in the cache, send a response indicating that the email is not found
-    return res.status(404).json('Email not found in cache');
-  }
 });
 
 
@@ -131,15 +120,15 @@ app.get("/nearbySearch", async (req, res) => {
     .limit(itemsPerPage)
     .exec();
 
-    // Check server cache memory for restaurant emails
-    const cachedEmails = cache.keys().filter(key => key.startsWith('restaurant:')).map(key => key.substring(11));
+    // Check connected data for restaurant emails
+    const connectedEmails = Object.values(connectedData);
 
-    console.log("Emails found in cache:", cachedEmails);
+    console.log("Emails found in connectedData:", connectedEmails);
 
     menuItems.forEach(item => {
-      item.activeStatus = cachedEmails.includes(item.email) ? "online" : "offline";
-      if (cachedEmails.includes(item.email)) {
-        console.log(`Email ${item.email} found in cache and matched with menu item.`);
+      item.activeStatus = connectedEmails.includes(item.email) ? "online" : "offline";
+      if (connectedEmails.includes(item.email)) {
+        console.log(`Email ${item.email} found in connectedData and matched with menu item.`);
       }
     });
 
@@ -156,7 +145,7 @@ app.get("/nearbySearch", async (req, res) => {
     console.error("Something went wrong!", error);
     res.status(500).json({ error: "Internal server error" });
   }
-});  
+});
 
 // Route to remove a cached document based on email
 app.delete("/remove-restaurant/:email", async (req, res) => {
@@ -172,8 +161,6 @@ app.delete("/remove-restaurant/:email", async (req, res) => {
   // If the email does not exist in the cache
   return res.status(404).json({ message: 'Email not found in cache' });
 });
-
-
 
 // Start the server
 server.listen(PORT, () => {
